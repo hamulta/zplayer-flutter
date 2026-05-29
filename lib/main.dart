@@ -10,12 +10,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.rakyzu.musicplayer.channel.audio',
-    androidNotificationChannelName: 'Rakyzu Music Playback',
-    androidNotificationOngoing: true,
-    androidShowNotificationBadge: true,
-  );
+  // v0.4.0-alpha2 startup guard:
+  // Background audio is an integration layer. If the native service init hangs
+  // or throws on a specific Android ROM, the app must still open normally.
+  try {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.rakyzu.musicplayer.channel.audio',
+      androidNotificationChannelName: 'Rakyzu Music Playback',
+      androidNotificationOngoing: true,
+      androidShowNotificationBadge: true,
+    ).timeout(const Duration(seconds: 4));
+  } catch (_) {
+    // Keep foreground playback alive; we will refine notification service in beta.
+  }
 
   runApp(const RakyzuApp());
 }
