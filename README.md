@@ -1,4 +1,4 @@
-# ZPlayer Offline
+# Rakyzu Music Player
 
 Native Flutter offline music player prototype.
 

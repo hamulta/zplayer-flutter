@@ -15,7 +15,7 @@ class ZPlayerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ZPlayer Offline',
+      title: 'Rakyzu Music Player',
       theme: ThemeData(
         brightness: Brightness.dark,
         useMaterial3: true,
@@ -290,7 +290,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ZPlayer Offline',
+                  'Rakyzu Music Player',
                   style: TextStyle(
                     color: Color(0xFFF4F1EA),
                     fontSize: 30,
@@ -300,7 +300,7 @@ class _Header extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Native Flutter local music player',
+                  'Premium offline music player',
                   style: TextStyle(color: Color(0xFFA9A5A0), fontSize: 13),
                 ),
               ],

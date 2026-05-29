@@ -159,7 +159,8 @@ jobs:
           from pathlib import Path
           manifest = Path("android/app/src/main/AndroidManifest.xml")
           text = manifest.read_text()
-          text = text.replace('android:label="zplayer_offline"', 'android:label="ZPlayer Offline"')
+          import re
+          text = re.sub(r'android:label="[^"]+"', 'android:label="Rakyzu Music Player"', text, count=1)
           manifest.write_text(text)
           PY2
 
@@ -174,6 +175,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ZPlayer-Offline-debug-apk
+          name: Rakyzu-Music-Player-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
