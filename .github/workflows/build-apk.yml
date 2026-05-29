@@ -58,29 +58,28 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Patch on_audio_query Android namespace
+      - name: Patch on_audio_query Android Gradle compatibility
         run: |
           python3 <<'PY'
           from pathlib import Path
           import re
 
-          candidates = list(Path.home().glob(".pub-cache/hosted/pub.dev/on_audio_query_android-*/android/build.gradle"))
+          files = list(Path.home().glob(".pub-cache/hosted/pub.dev/on_audio_query_android-*/android/build.gradle"))
 
-          if not candidates:
-              raise SystemExit("on_audio_query_android build.gradle not found")
+          if not files:
+              raise SystemExit("on_audio_query_android android/build.gradle not found")
 
-          gradle = candidates[0]
-          manifest = gradle.parent / "src" / "main" / "AndroidManifest.xml"
+          gradle = files[0]
+          text = gradle.read_text()
 
           namespace = "com.lucasjosino.on_audio_query"
+          manifest = gradle.parent / "src" / "main" / "AndroidManifest.xml"
 
           if manifest.exists():
               manifest_text = manifest.read_text()
-              found = re.search(r'package="([^"]+)"', manifest_text)
-              if found:
-                  namespace = found.group(1)
-
-          text = gradle.read_text()
+              match = re.search(r'package="([^"]+)"', manifest_text)
+              if match:
+                  namespace = match.group(1)
 
           if "namespace " not in text and "namespace=" not in text:
               text = text.replace(
@@ -89,10 +88,33 @@ jobs:
                   1
               )
 
+          if "compileOptions" not in text:
+              text = text.replace(
+                  "android {",
+                  """android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }""",
+                  1
+              )
+
+          if "KotlinCompile" not in text and "jvmTarget" not in text:
+              text += """
+
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          """
+
           gradle.write_text(text)
 
-          print("Patched:", gradle)
+          print("Patched Gradle file:", gradle)
           print("Namespace:", namespace)
+          print("Final android/build.gradle:")
+          print(text)
           PY
 
       - name: Analyze Dart
