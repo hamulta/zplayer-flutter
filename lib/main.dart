@@ -3,27 +3,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // v0.4.0-alpha2 startup guard:
-  // Background audio is an integration layer. If the native service init hangs
-  // or throws on a specific Android ROM, the app must still open normally.
-  try {
-    await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.rakyzu.musicplayer.channel.audio',
-      androidNotificationChannelName: 'Rakyzu Music Playback',
-      androidNotificationOngoing: true,
-      androidShowNotificationBadge: true,
-    ).timeout(const Duration(seconds: 4));
-  } catch (_) {
-    // Keep foreground playback alive; we will refine notification service in beta.
-  }
-
   runApp(const RakyzuApp());
 }
 
@@ -370,37 +354,11 @@ class _MusicHomePageState extends State<MusicHomePage> {
     return Uri.file(song.data);
   }
 
-  MediaItem _mediaItemFor(SongModel song) {
-    final durationMs = song.duration ?? 0;
-
-    return MediaItem(
-      id: song.id.toString(),
-      title: song.title,
-      artist: _smartArtistOrAlbum(song),
-      album: _safeAlbum(song),
-      duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
-    );
-  }
-
   Future<bool> _loadForPlayback(SongModel song) async {
     final uri = _uriFor(song);
 
-    // Attempt 1: background-aware source. This is needed for notification /
-    // lockscreen metadata, but some Android builds can reject the service layer.
-    try {
-      await _player.setAudioSource(
-        AudioSource.uri(
-          uri,
-          tag: _mediaItemFor(song),
-        ),
-      );
-      return true;
-    } catch (_) {
-      // Continue to foreground fallback.
-    }
-
-    // Attempt 2: foreground-only content/file URI. This restores the v0.3.x
-    // behavior if background metadata source fails.
+    // Foreground-safe playback path.
+    // This restores the stable v0.3.x behavior while keeping fallback protection.
     try {
       await _player.setAudioSource(AudioSource.uri(uri));
       return true;
@@ -408,8 +366,6 @@ class _MusicHomePageState extends State<MusicHomePage> {
       // Continue to file-path fallback.
     }
 
-    // Attempt 3: raw file path fallback for devices/providers where song.uri
-    // cannot be opened by the player.
     try {
       if (song.data.isNotEmpty) {
         await _player.setFilePath(song.data);
@@ -432,7 +388,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
       final loaded = await _loadForPlayback(song);
 
       if (!loaded) {
-        throw Exception('all playback sources failed');
+        throw Exception('playback source failed');
       }
 
       setState(() => _currentIndex = index);

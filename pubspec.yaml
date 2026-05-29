@@ -1,5 +1,5 @@
 name: zplayer_flutter
-version: 0.4.0+8
+version: 0.4.0+9
 publish_to: 'none'
 
 environment:
@@ -9,7 +9,6 @@ dependencies:
   flutter:
     sdk: flutter
   just_audio: ^0.10.0
-  just_audio_background: ^0.0.1-beta.17
   on_audio_query: ^2.9.0
   shared_preferences: ^2.3.5
 
