@@ -150,6 +150,19 @@ jobs:
               print("Checked:", file)
           PY
 
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Patch Android app label
+        run: |
+          python3 <<'PY2'
+          from pathlib import Path
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text = text.replace('android:label="zplayer_offline"', 'android:label="ZPlayer Offline"')
+          manifest.write_text(text)
+          PY2
+
       - name: Analyze Dart
         run: |
           rm -rf test
