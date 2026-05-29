@@ -370,27 +370,73 @@ class _MusicHomePageState extends State<MusicHomePage> {
     return Uri.file(song.data);
   }
 
+  MediaItem _mediaItemFor(SongModel song) {
+    final durationMs = song.duration ?? 0;
+
+    return MediaItem(
+      id: song.id.toString(),
+      title: song.title,
+      artist: _smartArtistOrAlbum(song),
+      album: _safeAlbum(song),
+      duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
+    );
+  }
+
+  Future<bool> _loadForPlayback(SongModel song) async {
+    final uri = _uriFor(song);
+
+    // Attempt 1: background-aware source. This is needed for notification /
+    // lockscreen metadata, but some Android builds can reject the service layer.
+    try {
+      await _player.setAudioSource(
+        AudioSource.uri(
+          uri,
+          tag: _mediaItemFor(song),
+        ),
+      );
+      return true;
+    } catch (_) {
+      // Continue to foreground fallback.
+    }
+
+    // Attempt 2: foreground-only content/file URI. This restores the v0.3.x
+    // behavior if background metadata source fails.
+    try {
+      await _player.setAudioSource(AudioSource.uri(uri));
+      return true;
+    } catch (_) {
+      // Continue to file-path fallback.
+    }
+
+    // Attempt 3: raw file path fallback for devices/providers where song.uri
+    // cannot be opened by the player.
+    try {
+      if (song.data.isNotEmpty) {
+        await _player.setFilePath(song.data);
+        return true;
+      }
+    } catch (_) {
+      // Nothing else to try.
+    }
+
+    return false;
+  }
+
   Future<void> _playSong(SongModel song) async {
     final index = _songs.indexWhere((item) => item.id == song.id);
     if (index < 0) return;
 
-    setState(() => _currentIndex = index);
-
     try {
-      final durationMs = song.duration ?? 0;
+      await _player.stop();
 
-      await _player.setAudioSource(
-        AudioSource.uri(
-          _uriFor(song),
-          tag: MediaItem(
-            id: song.id.toString(),
-            title: song.title,
-            artist: _smartArtistOrAlbum(song),
-            album: _safeAlbum(song),
-            duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
-          ),
-        ),
-      );
+      final loaded = await _loadForPlayback(song);
+
+      if (!loaded) {
+        throw Exception('all playback sources failed');
+      }
+
+      setState(() => _currentIndex = index);
+
       await _player.play();
       await _rememberRecent(song.id);
     } catch (_) {
