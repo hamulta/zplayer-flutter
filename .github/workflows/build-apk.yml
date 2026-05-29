@@ -81,6 +81,7 @@ jobs:
               if match:
                   namespace = match.group(1)
 
+          # 1. Patch namespace
           if "namespace " not in text and "namespace=" not in text:
               text = text.replace(
                   "android {",
@@ -88,6 +89,18 @@ jobs:
                   1
               )
 
+          # 2. Patch compileSdk to 34
+          text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 34', text)
+          text = re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 34', text)
+
+          if "compileSdk" not in text:
+              text = text.replace(
+                  "android {",
+                  "android {\n    compileSdk 34",
+                  1
+              )
+
+          # 3. Patch Java compile options
           if "compileOptions" not in text:
               text = text.replace(
                   "android {",
@@ -99,7 +112,8 @@ jobs:
                   1
               )
 
-          if "KotlinCompile" not in text and "jvmTarget" not in text:
+          # 4. Patch Kotlin jvmTarget
+          if "jvmTarget" not in text:
               text += """
 
           tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
@@ -113,8 +127,27 @@ jobs:
 
           print("Patched Gradle file:", gradle)
           print("Namespace:", namespace)
-          print("Final android/build.gradle:")
           print(text)
+          PY
+
+      - name: Patch app Android compileSdk
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          for file in [
+              Path("android/app/build.gradle"),
+              Path("android/build.gradle"),
+          ]:
+              if not file.exists():
+                  continue
+
+              text = file.read_text()
+              text = re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 34', text)
+              text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 34', text)
+              file.write_text(text)
+              print("Checked:", file)
           PY
 
       - name: Analyze Dart
