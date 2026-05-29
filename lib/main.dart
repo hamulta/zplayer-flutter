@@ -2,12 +2,36 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'audio/rakyzu_audio_handler.dart';
+
+RakyzuAudioHandler? rakyzuAudioHandler;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // v0.4.0-alpha5: notification skeleton.
+  // The service is initialized as a mirror/controller, while foreground playback
+  // remains the source of truth. If service init fails, the app still works.
+  try {
+    rakyzuAudioHandler = await AudioService.init(
+      builder: () => RakyzuAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.rakyzu.musicplayer.playback',
+        androidNotificationChannelName: 'Rakyzu Music Playback',
+        androidNotificationOngoing: true,
+        androidShowNotificationBadge: true,
+        androidStopForegroundOnPause: false,
+      ),
+    ).timeout(const Duration(seconds: 4));
+  } catch (_) {
+    rakyzuAudioHandler = null;
+  }
+
   runApp(const RakyzuApp());
 }
 
@@ -70,6 +94,8 @@ class _MusicHomePageState extends State<MusicHomePage> {
   final List<SongModel> _songs = <SongModel>[];
 
   StreamSubscription<PlayerState>? _playerStateSub;
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<Duration?>? _durationSub;
   SharedPreferences? _prefs;
 
   bool _loading = true;
@@ -94,11 +120,109 @@ class _MusicHomePageState extends State<MusicHomePage> {
   void initState() {
     super.initState();
     _bootstrap();
+    _registerAudioHandlerCallbacks();
+
     _playerStateSub = _player.playerStateStream.listen((state) {
+      _syncNotificationState();
+
       if (state.processingState == ProcessingState.completed) {
         _handleCompleted();
       }
     });
+
+    _positionSub = _player.positionStream.listen((_) {
+      _syncNotificationState();
+    });
+
+    _durationSub = _player.durationStream.listen((_) {
+      _syncNotificationState();
+    });
+  }
+
+  void _registerAudioHandlerCallbacks() {
+    final handler = rakyzuAudioHandler;
+    if (handler == null) return;
+
+    handler.onPlayRequested = _notificationPlay;
+    handler.onPauseRequested = _notificationPause;
+    handler.onStopRequested = _notificationStop;
+    handler.onNextRequested = _next;
+    handler.onPreviousRequested = _previous;
+    handler.onSeekRequested = (position) async {
+      await _player.seek(position);
+      _syncNotificationState();
+    };
+  }
+
+  AudioProcessingState _mapProcessingState(ProcessingState state) {
+    switch (state) {
+      case ProcessingState.idle:
+        return AudioProcessingState.idle;
+      case ProcessingState.loading:
+        return AudioProcessingState.loading;
+      case ProcessingState.buffering:
+        return AudioProcessingState.buffering;
+      case ProcessingState.ready:
+        return AudioProcessingState.ready;
+      case ProcessingState.completed:
+        return AudioProcessingState.completed;
+    }
+  }
+
+  void _syncNotificationState() {
+    final handler = rakyzuAudioHandler;
+    if (handler == null) return;
+
+    handler.updatePlayback(
+      playing: _player.playing,
+      processingState: _mapProcessingState(_player.processingState),
+      position: _player.position,
+      bufferedPosition: _player.bufferedPosition,
+      queueEnabled: _currentIndex >= 0,
+    );
+  }
+
+  void _syncNotificationTrack(SongModel song) {
+    final handler = rakyzuAudioHandler;
+    if (handler == null) return;
+
+    final durationMs = song.duration ?? 0;
+
+    handler.updateNowPlaying(
+      id: song.id.toString(),
+      title: song.title,
+      artist: _smartArtistOrAlbum(song),
+      album: _safeAlbum(song),
+      duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
+    );
+
+    _syncNotificationState();
+  }
+
+  Future<void> _notificationPlay() async {
+    if (_currentIndex < 0) {
+      await _togglePlayPause();
+      return;
+    }
+
+    await _player.play();
+    _syncNotificationState();
+
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _notificationPause() async {
+    await _player.pause();
+    _syncNotificationState();
+
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _notificationStop() async {
+    await _player.stop();
+    _syncNotificationState();
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _bootstrap() async {
@@ -357,8 +481,6 @@ class _MusicHomePageState extends State<MusicHomePage> {
   Future<bool> _loadForPlayback(SongModel song) async {
     final uri = _uriFor(song);
 
-    // Foreground-safe playback path.
-    // This restores the stable v0.3.x behavior while keeping fallback protection.
     try {
       await _player.setAudioSource(AudioSource.uri(uri));
       return true;
@@ -393,7 +515,11 @@ class _MusicHomePageState extends State<MusicHomePage> {
 
       setState(() => _currentIndex = index);
 
+      _syncNotificationTrack(song);
+
       await _player.play();
+      _syncNotificationState();
+
       await _rememberRecent(song.id);
     } catch (_) {
       if (!mounted) return;
@@ -428,6 +554,8 @@ class _MusicHomePageState extends State<MusicHomePage> {
     } else {
       await _player.play();
     }
+
+    _syncNotificationState();
   }
 
   Future<void> _handleCompleted() async {
@@ -840,7 +968,19 @@ class _MusicHomePageState extends State<MusicHomePage> {
 
   @override
   void dispose() {
+    final handler = rakyzuAudioHandler;
+    if (handler != null) {
+      handler.onPlayRequested = null;
+      handler.onPauseRequested = null;
+      handler.onStopRequested = null;
+      handler.onNextRequested = null;
+      handler.onPreviousRequested = null;
+      handler.onSeekRequested = null;
+    }
+
     _playerStateSub?.cancel();
+    _positionSub?.cancel();
+    _durationSub?.cancel();
     _searchController.dispose();
     _player.dispose();
     super.dispose();

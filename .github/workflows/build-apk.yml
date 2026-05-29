@@ -38,7 +38,7 @@ jobs:
           flutter create --platforms=android --project-name zplayer_offline .
           rm -rf test
 
-      - name: Patch Android permissions and label
+      - name: Patch Android manifest for audio service
         run: |
           python3 <<'PY'
           from pathlib import Path
@@ -47,10 +47,20 @@ jobs:
           manifest = Path("android/app/src/main/AndroidManifest.xml")
           text = manifest.read_text()
 
+          if "xmlns:tools" not in text:
+              text = text.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">',
+                  1,
+              )
+
           permissions = [
               '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
               '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
               '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+              '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+              '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+              '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
           ]
 
           for permission in permissions:
@@ -59,6 +69,29 @@ jobs:
                   text = text.replace("    <application", f"    {permission}\n\n    <application", 1)
 
           text = re.sub(r'android:label="[^"]+"', 'android:label="Rakyzu Music Player"', text, count=1)
+
+          if "com.ryanheise.audioservice.AudioService" not in text:
+              service_block = "\n".join([
+                  "        <service",
+                  '            android:name="com.ryanheise.audioservice.AudioService"',
+                  '            android:exported="true"',
+                  '            android:foregroundServiceType="mediaPlayback"',
+                  '            tools:ignore="Instantiatable">',
+                  "            <intent-filter>",
+                  '                <action android:name="android.media.browse.MediaBrowserService" />',
+                  "            </intent-filter>",
+                  "        </service>",
+                  "",
+                  "        <receiver",
+                  '            android:name="com.ryanheise.audioservice.MediaButtonReceiver"',
+                  '            android:exported="true"',
+                  '            tools:ignore="Instantiatable">',
+                  "            <intent-filter>",
+                  '                <action android:name="android.intent.action.MEDIA_BUTTON" />',
+                  "            </intent-filter>",
+                  "        </receiver>",
+              ])
+              text = text.replace("    </application>", service_block + "\n\n    </application>", 1)
 
           manifest.write_text(text)
           print(text)
