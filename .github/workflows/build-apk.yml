@@ -58,6 +58,43 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Patch on_audio_query Android namespace
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          candidates = list(Path.home().glob(".pub-cache/hosted/pub.dev/on_audio_query_android-*/android/build.gradle"))
+
+          if not candidates:
+              raise SystemExit("on_audio_query_android build.gradle not found")
+
+          gradle = candidates[0]
+          manifest = gradle.parent / "src" / "main" / "AndroidManifest.xml"
+
+          namespace = "com.lucasjosino.on_audio_query"
+
+          if manifest.exists():
+              manifest_text = manifest.read_text()
+              found = re.search(r'package="([^"]+)"', manifest_text)
+              if found:
+                  namespace = found.group(1)
+
+          text = gradle.read_text()
+
+          if "namespace " not in text and "namespace=" not in text:
+              text = text.replace(
+                  "android {",
+                  f"android {{\n    namespace '{namespace}'",
+                  1
+              )
+
+          gradle.write_text(text)
+
+          print("Patched:", gradle)
+          print("Namespace:", namespace)
+          PY
+
       - name: Analyze Dart
         run: |
           rm -rf test
