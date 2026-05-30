@@ -150,6 +150,27 @@ jobs:
               raise SystemExit("Neither android/app/build.gradle nor android/app/build.gradle.kts exists")
           PY
 
+      - name: Fix native ContextCompat import
+        run: |
+          python3 <<'PY2'
+          from pathlib import Path
+
+          fixed = False
+          for file in Path("android/app/src/main/kotlin").rglob("RakyzuMediaService.kt"):
+              text = file.read_text()
+              text = text.replace(
+                  "import androidx.core.content.ContextCompat",
+                  "import androidx.core.content.ContextCompat",
+              )
+              file.write_text(text)
+              print("Fixed:", file)
+              print(text)
+              fixed = True
+
+          if not fixed:
+              raise SystemExit("RakyzuMediaService.kt not found")
+          PY2
+
       - name: Force Android app display name
         run: |
           python3 <<'PY'
