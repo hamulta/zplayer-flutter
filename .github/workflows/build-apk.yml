@@ -100,25 +100,54 @@ jobs:
           print(text)
 
           gradle = Path("android/app/build.gradle")
-          g = gradle.read_text()
+          gradle_kts = Path("android/app/build.gradle.kts")
 
-          deps = [
-              'implementation "androidx.core:core-ktx:1.13.1"',
-              'implementation "androidx.media:media:1.7.0"',
-          ]
+          if gradle.exists():
+              g = gradle.read_text()
 
-          if "dependencies {" not in g:
-              g += "\n\ndependencies {\n}\n"
+              deps = [
+                  'implementation "androidx.core:core-ktx:1.13.1"',
+                  'implementation "androidx.media:media:1.7.0"',
+              ]
 
-          for dep in deps:
-              if dep not in g:
-                  g = g.replace("dependencies {", "dependencies {\n    " + dep, 1)
+              if "dependencies {" not in g:
+                  g += "\n\ndependencies {\n}\n"
 
-          g = re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 35', g)
-          g = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 35', g)
+              for dep in deps:
+                  if dep not in g:
+                      g = g.replace("dependencies {", "dependencies {\n    " + dep, 1)
 
-          gradle.write_text(g)
-          print(g)
+              g = re.sub(r'compileSdk\\s*=?\\s*\\d+', 'compileSdk 35', g)
+              g = re.sub(r'compileSdkVersion\\s+\\d+', 'compileSdkVersion 35', g)
+
+              gradle.write_text(g)
+              print("Patched Groovy Gradle:", gradle)
+              print(g)
+
+          elif gradle_kts.exists():
+              g = gradle_kts.read_text()
+
+              deps = [
+                  'implementation("androidx.core:core-ktx:1.13.1")',
+                  'implementation("androidx.media:media:1.7.0")',
+              ]
+
+              if "dependencies {" not in g:
+                  g += "\n\ndependencies {\n}\n"
+
+              for dep in deps:
+                  if dep not in g:
+                      g = g.replace("dependencies {", "dependencies {\n    " + dep, 1)
+
+              g = re.sub(r'compileSdk\\s*=\\s*\\d+', 'compileSdk = 35', g)
+              g = re.sub(r'compileSdkVersion\\(\\d+\\)', 'compileSdkVersion(35)', g)
+
+              gradle_kts.write_text(g)
+              print("Patched Kotlin Gradle:", gradle_kts)
+              print(g)
+
+          else:
+              raise SystemExit("Neither android/app/build.gradle nor android/app/build.gradle.kts exists")
           PY
 
       - name: Force Android app display name
