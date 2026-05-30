@@ -150,20 +150,31 @@ jobs:
               raise SystemExit("Neither android/app/build.gradle nor android/app/build.gradle.kts exists")
           PY
 
-      - name: Fix native ContextCompat import
+
+      - name: Patch native foreground service starter
         run: |
           python3 <<'PY2'
           from pathlib import Path
 
           fixed = False
+          replacement = (
+              "if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {\n"
+              "                context.startForegroundService(intent)\n"
+              "            } else {\n"
+              "                @Suppress(\"DEPRECATION\")\n"
+              "                context.startService(intent)\n"
+              "            }"
+          )
+
           for file in Path("android/app/src/main/kotlin").rglob("RakyzuMediaService.kt"):
               text = file.read_text()
-              text = text.replace(
-                  "import androidx.core.content.ContextCompat",
-                  "import androidx.core.content.ContextCompat",
-              )
+
+              text = text.replace("", "")
+              text = text.replace("", "")
+              text = text.replace("ContextCompat.startForegroundService(context, intent)", replacement)
+
               file.write_text(text)
-              print("Fixed:", file)
+              print("Patched:", file)
               print(text)
               fixed = True
 
