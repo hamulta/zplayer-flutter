@@ -223,6 +223,39 @@ class _MusicHomePageState extends State<MusicHomePage> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _requestPlayFromService() async {
+    final handler = rakyzuAudioHandler;
+
+    if (handler != null) {
+      await handler.play();
+    } else {
+      await _player.play();
+      _syncNotificationState();
+    }
+  }
+
+  Future<void> _requestPauseFromService() async {
+    final handler = rakyzuAudioHandler;
+
+    if (handler != null) {
+      await handler.pause();
+    } else {
+      await _player.pause();
+      _syncNotificationState();
+    }
+  }
+
+  Future<void> _requestStopFromService() async {
+    final handler = rakyzuAudioHandler;
+
+    if (handler != null) {
+      await handler.stop();
+    } else {
+      await _player.stop();
+      _syncNotificationState();
+    }
+  }
+
   Future<void> _bootstrap() async {
     setState(() => _loading = true);
 
@@ -515,8 +548,9 @@ class _MusicHomePageState extends State<MusicHomePage> {
 
       _syncNotificationTrack(song);
 
-      await _player.play();
-      _syncNotificationState();
+      await _syncNotificationState();
+
+      await _requestPlayFromService();
 
       await _rememberRecent(song.id);
     } catch (_) {
@@ -548,12 +582,12 @@ class _MusicHomePageState extends State<MusicHomePage> {
     }
 
     if (_player.playing) {
-      await _player.pause();
+      await _requestPauseFromService();
     } else {
-      await _player.play();
+      await _requestPlayFromService();
     }
 
-    _syncNotificationState();
+    if (mounted) setState(() {});
   }
 
   Future<void> _handleCompleted() async {
