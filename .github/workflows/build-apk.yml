@@ -68,7 +68,12 @@ jobs:
               if key not in text:
                   text = text.replace("    <application", f"    {permission}\n\n    <application", 1)
 
-          text = re.sub(r'android:label="[^"]+"', 'android:label="Rakyzu Music Player"', text, count=1)
+          text = re.sub(
+              r'android:name="\\.MainActivity"',
+              'android:name="com.ryanheise.audioservice.AudioServiceActivity"',
+              text,
+              count=1,
+          )
 
           if "com.ryanheise.audioservice.AudioService" not in text:
               service_block = "\n".join([
