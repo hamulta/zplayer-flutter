@@ -8,6 +8,7 @@ import 'package:on_audio_query/on_audio_query.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'audio/rakyzu_audio_handler.dart';
+import 'native/rakyzu_native_media.dart';
 
 RakyzuAudioHandler? rakyzuAudioHandler;
 
@@ -94,6 +95,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<String>? _nativeMediaActionSub;
   SharedPreferences? _prefs;
 
   bool _loading = true;
@@ -120,6 +122,28 @@ class _MusicHomePageState extends State<MusicHomePage> {
     _player = rakyzuAudioHandler?.player ?? AudioPlayer();
     _bootstrap();
     _registerAudioHandlerCallbacks();
+    _nativeMediaActionSub = RakyzuNativeMedia.actions.listen((action) {
+      if (!mounted) return;
+
+      if (action == 'play') {
+        _notificationPlay();
+      } else if (action == 'pause') {
+        _notificationPause();
+      } else if (action == 'stop') {
+        _notificationStop();
+      } else if (action == 'next') {
+        _next();
+      } else if (action == 'previous') {
+        _previous();
+      } else if (action.startsWith('seek:')) {
+        final raw = action.substring(5);
+        final ms = int.tryParse(raw);
+        if (ms != null) {
+          _player.seek(Duration(milliseconds: ms));
+        }
+      }
+    });
+
 
     _playerStateSub = _player.playerStateStream.listen((state) {
       _syncNotificationState();
@@ -169,6 +193,20 @@ class _MusicHomePageState extends State<MusicHomePage> {
   }
 
   void _syncNotificationState() {
+    final nativeSong = _currentSong;
+    if (nativeSong != null) {
+      final fallbackDuration = nativeSong.duration ?? 0;
+      final duration = _player.duration ?? Duration(milliseconds: fallbackDuration);
+
+      unawaited(
+        RakyzuNativeMedia.updatePlayback(
+          playing: _player.playing,
+          positionMs: _player.position.inMilliseconds,
+          durationMs: duration.inMilliseconds,
+        ),
+      );
+    }
+
     final handler = rakyzuAudioHandler;
     if (handler == null) return;
 
@@ -186,6 +224,19 @@ class _MusicHomePageState extends State<MusicHomePage> {
     if (handler == null) return;
 
     final durationMs = song.duration ?? 0;
+
+    unawaited(
+      RakyzuNativeMedia.setTrack(
+        id: song.id.toString(),
+        title: song.title,
+        artist: _smartArtistOrAlbum(song),
+        album: _safeAlbum(song),
+        durationMs: durationMs,
+        positionMs: _player.position.inMilliseconds,
+        playing: _player.playing,
+      ),
+    );
+
 
     handler.updateNowPlaying(
       id: song.id.toString(),
@@ -219,6 +270,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
 
   Future<void> _notificationStop() async {
     await _player.stop();
+    unawaited(RakyzuNativeMedia.stop());
     _syncNotificationState();
 
     if (mounted) setState(() {});
@@ -999,6 +1051,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
     _playerStateSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
+    _nativeMediaActionSub?.cancel();
     _searchController.dispose();
     if (rakyzuAudioHandler == null) {
       _player.dispose();
