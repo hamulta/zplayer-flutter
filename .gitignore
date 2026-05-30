@@ -10,3 +10,8 @@ rakyzu-v*-hotfix/
 rakyzu-v*-hotfix.zip
 rakyzu-v*-native-media-session/
 rakyzu-v*-native-media-session.zip
+
+# Local Rakyzu patch bundles
+rakyzu-v*/
+rakyzu-v*.zip
+*.bak.v*

@@ -220,32 +220,34 @@ class _MusicHomePageState extends State<MusicHomePage> {
   }
 
   void _syncNotificationTrack(SongModel song) {
-    final handler = rakyzuAudioHandler;
-    if (handler == null) return;
-
     final durationMs = song.duration ?? 0;
-
+    final title = song.title.trim().isEmpty ? 'Unknown Title' : song.title.trim();
+    final artist = _smartArtistOrAlbum(song);
+    final album = _safeAlbum(song);
+  
     unawaited(
       RakyzuNativeMedia.setTrack(
         id: song.id.toString(),
-        title: song.title,
-        artist: _smartArtistOrAlbum(song),
-        album: _safeAlbum(song),
+        title: title,
+        artist: artist,
+        album: album,
         durationMs: durationMs,
         positionMs: _player.position.inMilliseconds,
         playing: _player.playing,
       ),
     );
-
-
-    handler.updateNowPlaying(
-      id: song.id.toString(),
-      title: song.title,
-      artist: _smartArtistOrAlbum(song),
-      album: _safeAlbum(song),
-      duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
-    );
-
+  
+    final handler = rakyzuAudioHandler;
+    if (handler != null) {
+      handler.updateNowPlaying(
+        id: song.id.toString(),
+        title: title,
+        artist: artist,
+        album: album,
+        duration: durationMs > 0 ? Duration(milliseconds: durationMs) : null,
+      );
+    }
+  
     _syncNotificationState();
   }
 
