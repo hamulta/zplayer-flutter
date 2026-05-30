@@ -245,16 +245,6 @@ class _MusicHomePageState extends State<MusicHomePage> {
     }
   }
 
-  Future<void> _requestStopFromService() async {
-    final handler = rakyzuAudioHandler;
-
-    if (handler != null) {
-      await handler.stop();
-    } else {
-      await _player.stop();
-      _syncNotificationState();
-    }
-  }
 
   Future<void> _bootstrap() async {
     setState(() => _loading = true);
@@ -548,7 +538,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
 
       _syncNotificationTrack(song);
 
-      await _syncNotificationState();
+      _syncNotificationState();
 
       await _requestPlayFromService();
 
