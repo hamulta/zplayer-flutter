@@ -84,7 +84,7 @@ class MusicHomePage extends StatefulWidget {
 
 class _MusicHomePageState extends State<MusicHomePage> {
   final OnAudioQuery _audioQuery = OnAudioQuery();
-  final AudioPlayer _player = AudioPlayer();
+  late final AudioPlayer _player;
   final TextEditingController _searchController = TextEditingController();
   final Random _random = Random();
 
@@ -117,6 +117,7 @@ class _MusicHomePageState extends State<MusicHomePage> {
   @override
   void initState() {
     super.initState();
+    _player = rakyzuAudioHandler?.player ?? AudioPlayer();
     _bootstrap();
     _registerAudioHandlerCallbacks();
 
@@ -992,19 +993,16 @@ class _MusicHomePageState extends State<MusicHomePage> {
   void dispose() {
     final handler = rakyzuAudioHandler;
     if (handler != null) {
-      handler.onPlayRequested = null;
-      handler.onPauseRequested = null;
-      handler.onStopRequested = null;
-      handler.onNextRequested = null;
-      handler.onPreviousRequested = null;
-      handler.onSeekRequested = null;
+      handler.clearCallbacks();
     }
 
     _playerStateSub?.cancel();
     _positionSub?.cancel();
     _durationSub?.cancel();
     _searchController.dispose();
-    _player.dispose();
+    if (rakyzuAudioHandler == null) {
+      _player.dispose();
+    }
     super.dispose();
   }
 
