@@ -1,0 +1,277 @@
+name: Build APK
+
+on:
+  push:
+    branches:
+      - main
+      - feature/background-playback
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Generate Android project files
+        run: |
+          flutter create --platforms=android --project-name zplayer_offline .
+          rm -rf test
+
+      - name: Inject native Android MediaSession engine
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+
+          package_path = Path("android/app/src/main/kotlin/com/example/zplayer_offline")
+          package_path.mkdir(parents=True, exist_ok=True)
+
+          main_activity = base64.b64decode("cGFja2FnZSBjb20uZXhhbXBsZS56cGxheWVyX29mZmxpbmUKCmltcG9ydCBpby5mbHV0dGVyLmVtYmVkZGluZy5hbmRyb2lkLkZsdXR0ZXJBY3Rpdml0eQppbXBvcnQgaW8uZmx1dHRlci5lbWJlZGRpbmcuZW5naW5lLkZsdXR0ZXJFbmdpbmUKaW1wb3J0IGlvLmZsdXR0ZXIucGx1Z2luLmNvbW1vbi5FdmVudENoYW5uZWwKaW1wb3J0IGlvLmZsdXR0ZXIucGx1Z2luLmNvbW1vbi5NZXRob2RDYWxsCmltcG9ydCBpby5mbHV0dGVyLnBsdWdpbi5jb21tb24uTWV0aG9kQ2hhbm5lbAoKb2JqZWN0IFJha3l6dU5hdGl2ZUFjdGlvbkJ1cyB7CiAgICBwcml2YXRlIHZhciBzaW5rOiBFdmVudENoYW5uZWwuRXZlbnRTaW5rPyA9IG51bGwKCiAgICBmdW4gYXR0YWNoKGV2ZW50U2luazogRXZlbnRDaGFubmVsLkV2ZW50U2luaz8pIHsKICAgICAgICBzaW5rID0gZXZlbnRTaW5rCiAgICB9CgogICAgZnVuIGVtaXQoYWN0aW9uOiBTdHJpbmcpIHsKICAgICAgICBhbmRyb2lkLm9zLkhhbmRsZXIoYW5kcm9pZC5vcy5Mb29wZXIuZ2V0TWFpbkxvb3BlcigpKS5wb3N0IHsKICAgICAgICAgICAgc2luaz8uc3VjY2VzcyhhY3Rpb24pCiAgICAgICAgfQogICAgfQp9CgpjbGFzcyBNYWluQWN0aXZpdHkgOiBGbHV0dGVyQWN0aXZpdHkoKSB7CiAgICBwcml2YXRlIHZhbCBtZWRpYUNoYW5uZWwgPSAicmFreXp1L25hdGl2ZV9tZWRpYSIKICAgIHByaXZhdGUgdmFsIG1lZGlhRXZlbnRzID0gInJha3l6dS9uYXRpdmVfbWVkaWFfZXZlbnRzIgoKICAgIG92ZXJyaWRlIGZ1biBjb25maWd1cmVGbHV0dGVyRW5naW5lKGZsdXR0ZXJFbmdpbmU6IEZsdXR0ZXJFbmdpbmUpIHsKICAgICAgICBzdXBlci5jb25maWd1cmVGbHV0dGVyRW5naW5lKGZsdXR0ZXJFbmdpbmUpCgogICAgICAgIE1ldGhvZENoYW5uZWwoZmx1dHRlckVuZ2luZS5kYXJ0RXhlY3V0b3IuYmluYXJ5TWVzc2VuZ2VyLCBtZWRpYUNoYW5uZWwpLnNldE1ldGhvZENhbGxIYW5kbGVyIHsgY2FsbCwgcmVzdWx0IC0+CiAgICAgICAgICAgIHRyeSB7CiAgICAgICAgICAgICAgICB3aGVuIChjYWxsLm1ldGhvZCkgewogICAgICAgICAgICAgICAgICAgICJzZXRUcmFjayIgLT4gewogICAgICAgICAgICAgICAgICAgICAgICBSYWt5enVNZWRpYVNlcnZpY2Uuc2V0VHJhY2soCiAgICAgICAgICAgICAgICAgICAgICAgICAgICBjb250ZXh0ID0gdGhpcywKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlkID0gY2FsbC5zdHJpbmdBcmcoImlkIiksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICB0aXRsZSA9IGNhbGwuc3RyaW5nQXJnKCJ0aXRsZSIpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgYXJ0aXN0ID0gY2FsbC5zdHJpbmdBcmcoImFydGlzdCIpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgYWxidW0gPSBjYWxsLnN0cmluZ0FyZygiYWxidW0iKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGR1cmF0aW9uTXMgPSBjYWxsLmxvbmdBcmcoImR1cmF0aW9uTXMiKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBvc2l0aW9uTXMgPSBjYWxsLmxvbmdBcmcoInBvc2l0aW9uTXMiKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHBsYXlpbmcgPSBjYWxsLmJvb2xBcmcoInBsYXlpbmciKSwKICAgICAgICAgICAgICAgICAgICAgICAgKQogICAgICAgICAgICAgICAgICAgICAgICByZXN1bHQuc3VjY2VzcyhudWxsKQogICAgICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICAgICAgInVwZGF0ZVBsYXliYWNrIiAtPiB7CiAgICAgICAgICAgICAgICAgICAgICAgIFJha3l6dU1lZGlhU2VydmljZS51cGRhdGVQbGF5YmFjaygKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNvbnRleHQgPSB0aGlzLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgcGxheWluZyA9IGNhbGwuYm9vbEFyZygicGxheWluZyIpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgcG9zaXRpb25NcyA9IGNhbGwubG9uZ0FyZygicG9zaXRpb25NcyIpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgZHVyYXRpb25NcyA9IGNhbGwubG9uZ0FyZygiZHVyYXRpb25NcyIpLAogICAgICAgICAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICAgICAgICAgICAgIHJlc3VsdC5zdWNjZXNzKG51bGwpCiAgICAgICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgICAgICAic3RvcCIgLT4gewogICAgICAgICAgICAgICAgICAgICAgICBSYWt5enVNZWRpYVNlcnZpY2Uuc3RvcFNlcnZpY2UodGhpcykKICAgICAgICAgICAgICAgICAgICAgICAgcmVzdWx0LnN1Y2Nlc3MobnVsbCkKICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIGVsc2UgLT4gcmVzdWx0Lm5vdEltcGxlbWVudGVkKCkKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfSBjYXRjaCAoZXJyb3I6IFRocm93YWJsZSkgewogICAgICAgICAgICAgICAgcmVzdWx0LmVycm9yKCJSQUtZWlVfTkFUSVZFX01FRElBX0VSUk9SIiwgZXJyb3IubWVzc2FnZSwgbnVsbCkKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgRXZlbnRDaGFubmVsKGZsdXR0ZXJFbmdpbmUuZGFydEV4ZWN1dG9yLmJpbmFyeU1lc3NlbmdlciwgbWVkaWFFdmVudHMpLnNldFN0cmVhbUhhbmRsZXIoCiAgICAgICAgICAgIG9iamVjdCA6IEV2ZW50Q2hhbm5lbC5TdHJlYW1IYW5kbGVyIHsKICAgICAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvbkxpc3Rlbihhcmd1bWVudHM6IEFueT8sIGV2ZW50czogRXZlbnRDaGFubmVsLkV2ZW50U2luaz8pIHsKICAgICAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuYXR0YWNoKGV2ZW50cykKICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICBvdmVycmlkZSBmdW4gb25DYW5jZWwoYXJndW1lbnRzOiBBbnk/KSB7CiAgICAgICAgICAgICAgICAgICAgUmFreXp1TmF0aXZlQWN0aW9uQnVzLmF0dGFjaChudWxsKQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgKQogICAgfQoKICAgIHByaXZhdGUgZnVuIE1ldGhvZENhbGwuc3RyaW5nQXJnKG5hbWU6IFN0cmluZyk6IFN0cmluZyB7CiAgICAgICAgcmV0dXJuIGFyZ3VtZW50PFN0cmluZz4obmFtZSkgPzogIiIKICAgIH0KCiAgICBwcml2YXRlIGZ1biBNZXRob2RDYWxsLmxvbmdBcmcobmFtZTogU3RyaW5nKTogTG9uZyB7CiAgICAgICAgdmFsIHZhbHVlID0gYXJndW1lbnRzPE1hcDxTdHJpbmcsIEFueT8+PigpPy5nZXQobmFtZSkKICAgICAgICByZXR1cm4gd2hlbiAodmFsdWUpIHsKICAgICAgICAgICAgaXMgSW50IC0+IHZhbHVlLnRvTG9uZygpCiAgICAgICAgICAgIGlzIExvbmcgLT4gdmFsdWUKICAgICAgICAgICAgaXMgRG91YmxlIC0+IHZhbHVlLnRvTG9uZygpCiAgICAgICAgICAgIGlzIEZsb2F0IC0+IHZhbHVlLnRvTG9uZygpCiAgICAgICAgICAgIGVsc2UgLT4gMEwKICAgICAgICB9CiAgICB9CgogICAgcHJpdmF0ZSBmdW4gTWV0aG9kQ2FsbC5ib29sQXJnKG5hbWU6IFN0cmluZyk6IEJvb2xlYW4gewogICAgICAgIHJldHVybiBhcmd1bWVudDxCb29sZWFuPihuYW1lKSA/OiBmYWxzZQogICAgfQp9Cg==").decode()
+          media_service = base64.b64decode("cGFja2FnZSBjb20uZXhhbXBsZS56cGxheWVyX29mZmxpbmUKCmltcG9ydCBhbmRyb2lkLmFwcC5Ob3RpZmljYXRpb24KaW1wb3J0IGFuZHJvaWQuYXBwLk5vdGlmaWNhdGlvbkNoYW5uZWwKaW1wb3J0IGFuZHJvaWQuYXBwLk5vdGlmaWNhdGlvbk1hbmFnZXIKaW1wb3J0IGFuZHJvaWQuYXBwLlBlbmRpbmdJbnRlbnQKaW1wb3J0IGFuZHJvaWQuYXBwLlNlcnZpY2UKaW1wb3J0IGFuZHJvaWQuY29udGVudC5Db250ZXh0CmltcG9ydCBhbmRyb2lkLmNvbnRlbnQuSW50ZW50CmltcG9ydCBhbmRyb2lkLm9zLkJ1aWxkCmltcG9ydCBhbmRyb2lkLm9zLklCaW5kZXIKaW1wb3J0IGFuZHJvaWR4LmNvcmUuYXBwLkNvbnRleHRDb21wYXQKaW1wb3J0IGFuZHJvaWR4LmNvcmUuYXBwLk5vdGlmaWNhdGlvbkNvbXBhdAppbXBvcnQgYW5kcm9pZHgubWVkaWEuYXBwLk5vdGlmaWNhdGlvbkNvbXBhdC5NZWRpYVN0eWxlCmltcG9ydCBhbmRyb2lkLnN1cHBvcnQudjQubWVkaWEuTWVkaWFNZXRhZGF0YUNvbXBhdAppbXBvcnQgYW5kcm9pZC5zdXBwb3J0LnY0Lm1lZGlhLnNlc3Npb24uTWVkaWFTZXNzaW9uQ29tcGF0CmltcG9ydCBhbmRyb2lkLnN1cHBvcnQudjQubWVkaWEuc2Vzc2lvbi5QbGF5YmFja1N0YXRlQ29tcGF0CgpjbGFzcyBSYWt5enVNZWRpYVNlcnZpY2UgOiBTZXJ2aWNlKCkgewogICAgcHJpdmF0ZSBsYXRlaW5pdCB2YXIgbWVkaWFTZXNzaW9uOiBNZWRpYVNlc3Npb25Db21wYXQKICAgIHByaXZhdGUgbGF0ZWluaXQgdmFyIG5vdGlmaWNhdGlvbk1hbmFnZXI6IE5vdGlmaWNhdGlvbk1hbmFnZXIKCiAgICBwcml2YXRlIHZhciB0cmFja0lkOiBTdHJpbmcgPSAicmFreXp1LWN1cnJlbnQiCiAgICBwcml2YXRlIHZhciB0aXRsZTogU3RyaW5nID0gIlJha3l6dSBNdXNpYyBQbGF5ZXIiCiAgICBwcml2YXRlIHZhciBhcnRpc3Q6IFN0cmluZyA9ICJVbmtub3duIEFydGlzdCIKICAgIHByaXZhdGUgdmFyIGFsYnVtOiBTdHJpbmcgPSAiUmFreXp1IgogICAgcHJpdmF0ZSB2YXIgZHVyYXRpb25NczogTG9uZyA9IDBMCiAgICBwcml2YXRlIHZhciBwb3NpdGlvbk1zOiBMb25nID0gMEwKICAgIHByaXZhdGUgdmFyIHBsYXlpbmc6IEJvb2xlYW4gPSBmYWxzZQoKICAgIG92ZXJyaWRlIGZ1biBvbkNyZWF0ZSgpIHsKICAgICAgICBzdXBlci5vbkNyZWF0ZSgpCgogICAgICAgIG5vdGlmaWNhdGlvbk1hbmFnZXIgPSBnZXRTeXN0ZW1TZXJ2aWNlKENvbnRleHQuTk9USUZJQ0FUSU9OX1NFUlZJQ0UpIGFzIE5vdGlmaWNhdGlvbk1hbmFnZXIKICAgICAgICBjcmVhdGVOb3RpZmljYXRpb25DaGFubmVsKCkKCiAgICAgICAgbWVkaWFTZXNzaW9uID0gTWVkaWFTZXNzaW9uQ29tcGF0KHRoaXMsICJSYWt5enVNdXNpY1Nlc3Npb24iKS5hcHBseSB7CiAgICAgICAgICAgIHNldEZsYWdzKAogICAgICAgICAgICAgICAgTWVkaWFTZXNzaW9uQ29tcGF0LkZMQUdfSEFORExFU19NRURJQV9CVVRUT05TIG9yCiAgICAgICAgICAgICAgICAgICAgTWVkaWFTZXNzaW9uQ29tcGF0LkZMQUdfSEFORExFU19UUkFOU1BPUlRfQ09OVFJPTFMKICAgICAgICAgICAgKQoKICAgICAgICAgICAgc2V0Q2FsbGJhY2soCiAgICAgICAgICAgICAgICBvYmplY3QgOiBNZWRpYVNlc3Npb25Db21wYXQuQ2FsbGJhY2soKSB7CiAgICAgICAgICAgICAgICAgICAgb3ZlcnJpZGUgZnVuIG9uUGxheSgpIHsKICAgICAgICAgICAgICAgICAgICAgICAgcGxheWluZyA9IHRydWUKICAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpCiAgICAgICAgICAgICAgICAgICAgICAgIFJha3l6dU5hdGl2ZUFjdGlvbkJ1cy5lbWl0KCJwbGF5IikKICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvblBhdXNlKCkgewogICAgICAgICAgICAgICAgICAgICAgICBwbGF5aW5nID0gZmFsc2UKICAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpCiAgICAgICAgICAgICAgICAgICAgICAgIFJha3l6dU5hdGl2ZUFjdGlvbkJ1cy5lbWl0KCJwYXVzZSIpCiAgICAgICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgICAgICBvdmVycmlkZSBmdW4gb25TdG9wKCkgewogICAgICAgICAgICAgICAgICAgICAgICBwbGF5aW5nID0gZmFsc2UKICAgICAgICAgICAgICAgICAgICAgICAgdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpCiAgICAgICAgICAgICAgICAgICAgICAgIFJha3l6dU5hdGl2ZUFjdGlvbkJ1cy5lbWl0KCJzdG9wIikKICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvblNraXBUb05leHQoKSB7CiAgICAgICAgICAgICAgICAgICAgICAgIFJha3l6dU5hdGl2ZUFjdGlvbkJ1cy5lbWl0KCJuZXh0IikKICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIG92ZXJyaWRlIGZ1biBvblNraXBUb1ByZXZpb3VzKCkgewogICAgICAgICAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuZW1pdCgicHJldmlvdXMiKQogICAgICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICAgICAgb3ZlcnJpZGUgZnVuIG9uU2Vla1RvKHBvczogTG9uZykgewogICAgICAgICAgICAgICAgICAgICAgICBwb3NpdGlvbk1zID0gcG9zCiAgICAgICAgICAgICAgICAgICAgICAgIHVwZGF0ZVNlc3Npb25BbmROb3RpZmljYXRpb24oKQogICAgICAgICAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuZW1pdCgic2VlazokcG9zIikKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICkKCiAgICAgICAgICAgIGlzQWN0aXZlID0gdHJ1ZQogICAgICAgIH0KICAgIH0KCiAgICBvdmVycmlkZSBmdW4gb25TdGFydENvbW1hbmQoaW50ZW50OiBJbnRlbnQ/LCBmbGFnczogSW50LCBzdGFydElkOiBJbnQpOiBJbnQgewogICAgICAgIHdoZW4gKGludGVudD8uYWN0aW9uKSB7CiAgICAgICAgICAgIEFDVElPTl9TRVRfVFJBQ0sgLT4gewogICAgICAgICAgICAgICAgdHJhY2tJZCA9IGludGVudC5nZXRTdHJpbmdFeHRyYShFWFRSQV9JRCkgPzogdHJhY2tJZAogICAgICAgICAgICAgICAgdGl0bGUgPSBpbnRlbnQuZ2V0U3RyaW5nRXh0cmEoRVhUUkFfVElUTEUpID86IHRpdGxlCiAgICAgICAgICAgICAgICBhcnRpc3QgPSBpbnRlbnQuZ2V0U3RyaW5nRXh0cmEoRVhUUkFfQVJUSVNUKSA/OiBhcnRpc3QKICAgICAgICAgICAgICAgIGFsYnVtID0gaW50ZW50LmdldFN0cmluZ0V4dHJhKEVYVFJBX0FMQlVNKSA/OiBhbGJ1bQogICAgICAgICAgICAgICAgZHVyYXRpb25NcyA9IGludGVudC5nZXRMb25nRXh0cmEoRVhUUkFfRFVSQVRJT04sIGR1cmF0aW9uTXMpCiAgICAgICAgICAgICAgICBwb3NpdGlvbk1zID0gaW50ZW50LmdldExvbmdFeHRyYShFWFRSQV9QT1NJVElPTiwgcG9zaXRpb25NcykKICAgICAgICAgICAgICAgIHBsYXlpbmcgPSBpbnRlbnQuZ2V0Qm9vbGVhbkV4dHJhKEVYVFJBX1BMQVlJTkcsIHBsYXlpbmcpCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIEFDVElPTl9VUERBVEVfUExBWUJBQ0sgLT4gewogICAgICAgICAgICAgICAgZHVyYXRpb25NcyA9IGludGVudC5nZXRMb25nRXh0cmEoRVhUUkFfRFVSQVRJT04sIGR1cmF0aW9uTXMpCiAgICAgICAgICAgICAgICBwb3NpdGlvbk1zID0gaW50ZW50LmdldExvbmdFeHRyYShFWFRSQV9QT1NJVElPTiwgcG9zaXRpb25NcykKICAgICAgICAgICAgICAgIHBsYXlpbmcgPSBpbnRlbnQuZ2V0Qm9vbGVhbkV4dHJhKEVYVFJBX1BMQVlJTkcsIHBsYXlpbmcpCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIEFDVElPTl9QTEFZIC0+IHsKICAgICAgICAgICAgICAgIHBsYXlpbmcgPSB0cnVlCiAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuZW1pdCgicGxheSIpCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIEFDVElPTl9QQVVTRSAtPiB7CiAgICAgICAgICAgICAgICBwbGF5aW5nID0gZmFsc2UKICAgICAgICAgICAgICAgIFJha3l6dU5hdGl2ZUFjdGlvbkJ1cy5lbWl0KCJwYXVzZSIpCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIEFDVElPTl9QUkVWSU9VUyAtPiB7CiAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuZW1pdCgicHJldmlvdXMiKQogICAgICAgICAgICB9CgogICAgICAgICAgICBBQ1RJT05fTkVYVCAtPiB7CiAgICAgICAgICAgICAgICBSYWt5enVOYXRpdmVBY3Rpb25CdXMuZW1pdCgibmV4dCIpCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIEFDVElPTl9TVE9QIC0+IHsKICAgICAgICAgICAgICAgIHBsYXlpbmcgPSBmYWxzZQogICAgICAgICAgICAgICAgUmFreXp1TmF0aXZlQWN0aW9uQnVzLmVtaXQoInN0b3AiKQogICAgICAgICAgICAgICAgdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpCiAgICAgICAgICAgICAgICBpZiAoQnVpbGQuVkVSU0lPTi5TREtfSU5UID49IEJ1aWxkLlZFUlNJT05fQ09ERVMuTikgewogICAgICAgICAgICAgICAgICAgIHN0b3BGb3JlZ3JvdW5kKFNUT1BfRk9SRUdST1VORF9ERVRBQ0gpCiAgICAgICAgICAgICAgICB9IGVsc2UgewogICAgICAgICAgICAgICAgICAgIEBTdXBwcmVzcygiREVQUkVDQVRJT04iKQogICAgICAgICAgICAgICAgICAgIHN0b3BGb3JlZ3JvdW5kKGZhbHNlKQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgc3RvcFNlbGYoKQogICAgICAgICAgICAgICAgcmV0dXJuIFNUQVJUX05PVF9TVElDS1kKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpCiAgICAgICAgcmV0dXJuIFNUQVJUX1NUSUNLWQogICAgfQoKICAgIG92ZXJyaWRlIGZ1biBvbkRlc3Ryb3koKSB7CiAgICAgICAgaWYgKDo6bWVkaWFTZXNzaW9uLmlzSW5pdGlhbGl6ZWQpIHsKICAgICAgICAgICAgbWVkaWFTZXNzaW9uLmlzQWN0aXZlID0gZmFsc2UKICAgICAgICAgICAgbWVkaWFTZXNzaW9uLnJlbGVhc2UoKQogICAgICAgIH0KICAgICAgICBzdXBlci5vbkRlc3Ryb3koKQogICAgfQoKICAgIG92ZXJyaWRlIGZ1biBvbkJpbmQoaW50ZW50OiBJbnRlbnQ/KTogSUJpbmRlcj8gPSBudWxsCgogICAgcHJpdmF0ZSBmdW4gdXBkYXRlU2Vzc2lvbkFuZE5vdGlmaWNhdGlvbigpIHsKICAgICAgICBpZiAoITo6bWVkaWFTZXNzaW9uLmlzSW5pdGlhbGl6ZWQpIHJldHVybgoKICAgICAgICBtZWRpYVNlc3Npb24uc2V0TWV0YWRhdGEoCiAgICAgICAgICAgIE1lZGlhTWV0YWRhdGFDb21wYXQuQnVpbGRlcigpCiAgICAgICAgICAgICAgICAucHV0U3RyaW5nKE1lZGlhTWV0YWRhdGFDb21wYXQuTUVUQURBVEFfS0VZX01FRElBX0lELCB0cmFja0lkKQogICAgICAgICAgICAgICAgLnB1dFN0cmluZyhNZWRpYU1ldGFkYXRhQ29tcGF0Lk1FVEFEQVRBX0tFWV9USVRMRSwgdGl0bGUpCiAgICAgICAgICAgICAgICAucHV0U3RyaW5nKE1lZGlhTWV0YWRhdGFDb21wYXQuTUVUQURBVEFfS0VZX0FSVElTVCwgYXJ0aXN0KQogICAgICAgICAgICAgICAgLnB1dFN0cmluZyhNZWRpYU1ldGFkYXRhQ29tcGF0Lk1FVEFEQVRBX0tFWV9BTEJVTSwgYWxidW0pCiAgICAgICAgICAgICAgICAucHV0TG9uZyhNZWRpYU1ldGFkYXRhQ29tcGF0Lk1FVEFEQVRBX0tFWV9EVVJBVElPTiwgZHVyYXRpb25NcykKICAgICAgICAgICAgICAgIC5idWlsZCgpCiAgICAgICAgKQoKICAgICAgICB2YWwgcGxheWJhY2tTdGF0ZSA9IGlmIChwbGF5aW5nKSB7CiAgICAgICAgICAgIFBsYXliYWNrU3RhdGVDb21wYXQuU1RBVEVfUExBWUlORwogICAgICAgIH0gZWxzZSB7CiAgICAgICAgICAgIFBsYXliYWNrU3RhdGVDb21wYXQuU1RBVEVfUEFVU0VECiAgICAgICAgfQoKICAgICAgICBtZWRpYVNlc3Npb24uc2V0UGxheWJhY2tTdGF0ZSgKICAgICAgICAgICAgUGxheWJhY2tTdGF0ZUNvbXBhdC5CdWlsZGVyKCkKICAgICAgICAgICAgICAgIC5zZXRBY3Rpb25zKAogICAgICAgICAgICAgICAgICAgIFBsYXliYWNrU3RhdGVDb21wYXQuQUNUSU9OX1BMQVkgb3IKICAgICAgICAgICAgICAgICAgICAgICAgUGxheWJhY2tTdGF0ZUNvbXBhdC5BQ1RJT05fUEFVU0Ugb3IKICAgICAgICAgICAgICAgICAgICAgICAgUGxheWJhY2tTdGF0ZUNvbXBhdC5BQ1RJT05fUExBWV9QQVVTRSBvcgogICAgICAgICAgICAgICAgICAgICAgICBQbGF5YmFja1N0YXRlQ29tcGF0LkFDVElPTl9TS0lQX1RPX1BSRVZJT1VTIG9yCiAgICAgICAgICAgICAgICAgICAgICAgIFBsYXliYWNrU3RhdGVDb21wYXQuQUNUSU9OX1NLSVBfVE9fTkVYVCBvcgogICAgICAgICAgICAgICAgICAgICAgICBQbGF5YmFja1N0YXRlQ29tcGF0LkFDVElPTl9TRUVLX1RPIG9yCiAgICAgICAgICAgICAgICAgICAgICAgIFBsYXliYWNrU3RhdGVDb21wYXQuQUNUSU9OX1NUT1AKICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgIC5zZXRTdGF0ZShwbGF5YmFja1N0YXRlLCBwb3NpdGlvbk1zLCAxLjBmKQogICAgICAgICAgICAgICAgLmJ1aWxkKCkKICAgICAgICApCgogICAgICAgIG1lZGlhU2Vzc2lvbi5pc0FjdGl2ZSA9IHRydWUKICAgICAgICBzdGFydEZvcmVncm91bmQoTk9USUZJQ0FUSU9OX0lELCBidWlsZE5vdGlmaWNhdGlvbigpKQogICAgfQoKICAgIHByaXZhdGUgZnVuIGJ1aWxkTm90aWZpY2F0aW9uKCk6IE5vdGlmaWNhdGlvbiB7CiAgICAgICAgdmFsIHBsYXlQYXVzZUFjdGlvbiA9IGlmIChwbGF5aW5nKSB7CiAgICAgICAgICAgIE5vdGlmaWNhdGlvbkNvbXBhdC5BY3Rpb24oCiAgICAgICAgICAgICAgICBhbmRyb2lkLlIuZHJhd2FibGUuaWNfbWVkaWFfcGF1c2UsCiAgICAgICAgICAgICAgICAiUGF1c2UiLAogICAgICAgICAgICAgICAgcGVuZGluZ0ludGVudChBQ1RJT05fUEFVU0UpCiAgICAgICAgICAgICkKICAgICAgICB9IGVsc2UgewogICAgICAgICAgICBOb3RpZmljYXRpb25Db21wYXQuQWN0aW9uKAogICAgICAgICAgICAgICAgYW5kcm9pZC5SLmRyYXdhYmxlLmljX21lZGlhX3BsYXksCiAgICAgICAgICAgICAgICAiUGxheSIsCiAgICAgICAgICAgICAgICBwZW5kaW5nSW50ZW50KEFDVElPTl9QTEFZKQogICAgICAgICAgICApCiAgICAgICAgfQoKICAgICAgICByZXR1cm4gTm90aWZpY2F0aW9uQ29tcGF0LkJ1aWxkZXIodGhpcywgQ0hBTk5FTF9JRCkKICAgICAgICAgICAgLnNldFNtYWxsSWNvbihSLm1pcG1hcC5pY19sYXVuY2hlcikKICAgICAgICAgICAgLnNldENvbnRlbnRUaXRsZSh0aXRsZSkKICAgICAgICAgICAgLnNldENvbnRlbnRUZXh0KGFydGlzdCkKICAgICAgICAgICAgLnNldFN1YlRleHQoYWxidW0pCiAgICAgICAgICAgIC5zZXRDYXRlZ29yeShOb3RpZmljYXRpb25Db21wYXQuQ0FURUdPUllfVFJBTlNQT1JUKQogICAgICAgICAgICAuc2V0UHJpb3JpdHkoTm90aWZpY2F0aW9uQ29tcGF0LlBSSU9SSVRZX0xPVykKICAgICAgICAgICAgLnNldFZpc2liaWxpdHkoTm90aWZpY2F0aW9uQ29tcGF0LlZJU0lCSUxJVFlfUFVCTElDKQogICAgICAgICAgICAuc2V0T25seUFsZXJ0T25jZSh0cnVlKQogICAgICAgICAgICAuc2V0T25nb2luZyhwbGF5aW5nKQogICAgICAgICAgICAuYWRkQWN0aW9uKAogICAgICAgICAgICAgICAgTm90aWZpY2F0aW9uQ29tcGF0LkFjdGlvbigKICAgICAgICAgICAgICAgICAgICBhbmRyb2lkLlIuZHJhd2FibGUuaWNfbWVkaWFfcHJldmlvdXMsCiAgICAgICAgICAgICAgICAgICAgIlByZXZpb3VzIiwKICAgICAgICAgICAgICAgICAgICBwZW5kaW5nSW50ZW50KEFDVElPTl9QUkVWSU9VUykKICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgKQogICAgICAgICAgICAuYWRkQWN0aW9uKHBsYXlQYXVzZUFjdGlvbikKICAgICAgICAgICAgLmFkZEFjdGlvbigKICAgICAgICAgICAgICAgIE5vdGlmaWNhdGlvbkNvbXBhdC5BY3Rpb24oCiAgICAgICAgICAgICAgICAgICAgYW5kcm9pZC5SLmRyYXdhYmxlLmljX21lZGlhX25leHQsCiAgICAgICAgICAgICAgICAgICAgIk5leHQiLAogICAgICAgICAgICAgICAgICAgIHBlbmRpbmdJbnRlbnQoQUNUSU9OX05FWFQpCiAgICAgICAgICAgICAgICApCiAgICAgICAgICAgICkKICAgICAgICAgICAgLmFkZEFjdGlvbigKICAgICAgICAgICAgICAgIE5vdGlmaWNhdGlvbkNvbXBhdC5BY3Rpb24oCiAgICAgICAgICAgICAgICAgICAgYW5kcm9pZC5SLmRyYXdhYmxlLmljX21lbnVfY2xvc2VfY2xlYXJfY2FuY2VsLAogICAgICAgICAgICAgICAgICAgICJTdG9wIiwKICAgICAgICAgICAgICAgICAgICBwZW5kaW5nSW50ZW50KEFDVElPTl9TVE9QKQogICAgICAgICAgICAgICAgKQogICAgICAgICAgICApCiAgICAgICAgICAgIC5zZXRTdHlsZSgKICAgICAgICAgICAgICAgIE1lZGlhU3R5bGUoKQogICAgICAgICAgICAgICAgICAgIC5zZXRNZWRpYVNlc3Npb24obWVkaWFTZXNzaW9uLnNlc3Npb25Ub2tlbikKICAgICAgICAgICAgICAgICAgICAuc2V0U2hvd0FjdGlvbnNJbkNvbXBhY3RWaWV3KDAsIDEsIDIpCiAgICAgICAgICAgICkKICAgICAgICAgICAgLmJ1aWxkKCkKICAgIH0KCiAgICBwcml2YXRlIGZ1biBwZW5kaW5nSW50ZW50KGFjdGlvbjogU3RyaW5nKTogUGVuZGluZ0ludGVudCB7CiAgICAgICAgdmFsIGludGVudCA9IEludGVudCh0aGlzLCBSYWt5enVNZWRpYVNlcnZpY2U6OmNsYXNzLmphdmEpLmFwcGx5IHsKICAgICAgICAgICAgdGhpcy5hY3Rpb24gPSBhY3Rpb24KICAgICAgICB9CgogICAgICAgIHJldHVybiBQZW5kaW5nSW50ZW50LmdldFNlcnZpY2UoCiAgICAgICAgICAgIHRoaXMsCiAgICAgICAgICAgIGFjdGlvbi5oYXNoQ29kZSgpLAogICAgICAgICAgICBpbnRlbnQsCiAgICAgICAgICAgIFBlbmRpbmdJbnRlbnQuRkxBR19VUERBVEVfQ1VSUkVOVCBvciBQZW5kaW5nSW50ZW50LkZMQUdfSU1NVVRBQkxFCiAgICAgICAgKQogICAgfQoKICAgIHByaXZhdGUgZnVuIGNyZWF0ZU5vdGlmaWNhdGlvbkNoYW5uZWwoKSB7CiAgICAgICAgaWYgKEJ1aWxkLlZFUlNJT04uU0RLX0lOVCA8IEJ1aWxkLlZFUlNJT05fQ09ERVMuTykgcmV0dXJuCgogICAgICAgIHZhbCBjaGFubmVsID0gTm90aWZpY2F0aW9uQ2hhbm5lbCgKICAgICAgICAgICAgQ0hBTk5FTF9JRCwKICAgICAgICAgICAgIlJha3l6dSBNdXNpYyBQbGF5YmFjayIsCiAgICAgICAgICAgIE5vdGlmaWNhdGlvbk1hbmFnZXIuSU1QT1JUQU5DRV9MT1cKICAgICAgICApLmFwcGx5IHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gPSAiTWVkaWEgcGxheWJhY2sgY29udHJvbHMgZm9yIFJha3l6dSBNdXNpYyBQbGF5ZXIiCiAgICAgICAgICAgIHNldFNob3dCYWRnZShmYWxzZSkKICAgICAgICAgICAgbG9ja3NjcmVlblZpc2liaWxpdHkgPSBOb3RpZmljYXRpb24uVklTSUJJTElUWV9QVUJMSUMKICAgICAgICB9CgogICAgICAgIG5vdGlmaWNhdGlvbk1hbmFnZXIuY3JlYXRlTm90aWZpY2F0aW9uQ2hhbm5lbChjaGFubmVsKQogICAgfQoKICAgIGNvbXBhbmlvbiBvYmplY3QgewogICAgICAgIHByaXZhdGUgY29uc3QgdmFsIENIQU5ORUxfSUQgPSAicmFreXp1X25hdGl2ZV9tZWRpYV9wbGF5YmFjayIKICAgICAgICBwcml2YXRlIGNvbnN0IHZhbCBOT1RJRklDQVRJT05fSUQgPSA1MDEwCgogICAgICAgIHByaXZhdGUgY29uc3QgdmFsIEFDVElPTl9TRVRfVFJBQ0sgPSAiY29tLnJha3l6dS5tdXNpYy5TRVRfVFJBQ0siCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgQUNUSU9OX1VQREFURV9QTEFZQkFDSyA9ICJjb20ucmFreXp1Lm11c2ljLlVQREFURV9QTEFZQkFDSyIKICAgICAgICBwcml2YXRlIGNvbnN0IHZhbCBBQ1RJT05fUExBWSA9ICJjb20ucmFreXp1Lm11c2ljLlBMQVkiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgQUNUSU9OX1BBVVNFID0gImNvbS5yYWt5enUubXVzaWMuUEFVU0UiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgQUNUSU9OX1BSRVZJT1VTID0gImNvbS5yYWt5enUubXVzaWMuUFJFVklPVVMiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgQUNUSU9OX05FWFQgPSAiY29tLnJha3l6dS5tdXNpYy5ORVhUIgogICAgICAgIHByaXZhdGUgY29uc3QgdmFsIEFDVElPTl9TVE9QID0gImNvbS5yYWt5enUubXVzaWMuU1RPUCIKCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgRVhUUkFfSUQgPSAiaWQiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgRVhUUkFfVElUTEUgPSAidGl0bGUiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgRVhUUkFfQVJUSVNUID0gImFydGlzdCIKICAgICAgICBwcml2YXRlIGNvbnN0IHZhbCBFWFRSQV9BTEJVTSA9ICJhbGJ1bSIKICAgICAgICBwcml2YXRlIGNvbnN0IHZhbCBFWFRSQV9EVVJBVElPTiA9ICJkdXJhdGlvbk1zIgogICAgICAgIHByaXZhdGUgY29uc3QgdmFsIEVYVFJBX1BPU0lUSU9OID0gInBvc2l0aW9uTXMiCiAgICAgICAgcHJpdmF0ZSBjb25zdCB2YWwgRVhUUkFfUExBWUlORyA9ICJwbGF5aW5nIgoKICAgICAgICBmdW4gc2V0VHJhY2soCiAgICAgICAgICAgIGNvbnRleHQ6IENvbnRleHQsCiAgICAgICAgICAgIGlkOiBTdHJpbmcsCiAgICAgICAgICAgIHRpdGxlOiBTdHJpbmcsCiAgICAgICAgICAgIGFydGlzdDogU3RyaW5nLAogICAgICAgICAgICBhbGJ1bTogU3RyaW5nLAogICAgICAgICAgICBkdXJhdGlvbk1zOiBMb25nLAogICAgICAgICAgICBwb3NpdGlvbk1zOiBMb25nLAogICAgICAgICAgICBwbGF5aW5nOiBCb29sZWFuLAogICAgICAgICkgewogICAgICAgICAgICB2YWwgaW50ZW50ID0gSW50ZW50KGNvbnRleHQsIFJha3l6dU1lZGlhU2VydmljZTo6Y2xhc3MuamF2YSkuYXBwbHkgewogICAgICAgICAgICAgICAgYWN0aW9uID0gQUNUSU9OX1NFVF9UUkFDSwogICAgICAgICAgICAgICAgcHV0RXh0cmEoRVhUUkFfSUQsIGlkKQogICAgICAgICAgICAgICAgcHV0RXh0cmEoRVhUUkFfVElUTEUsIHRpdGxlKQogICAgICAgICAgICAgICAgcHV0RXh0cmEoRVhUUkFfQVJUSVNULCBhcnRpc3QpCiAgICAgICAgICAgICAgICBwdXRFeHRyYShFWFRSQV9BTEJVTSwgYWxidW0pCiAgICAgICAgICAgICAgICBwdXRFeHRyYShFWFRSQV9EVVJBVElPTiwgZHVyYXRpb25NcykKICAgICAgICAgICAgICAgIHB1dEV4dHJhKEVYVFJBX1BPU0lUSU9OLCBwb3NpdGlvbk1zKQogICAgICAgICAgICAgICAgcHV0RXh0cmEoRVhUUkFfUExBWUlORywgcGxheWluZykKICAgICAgICAgICAgfQoKICAgICAgICAgICAgQ29udGV4dENvbXBhdC5zdGFydEZvcmVncm91bmRTZXJ2aWNlKGNvbnRleHQsIGludGVudCkKICAgICAgICB9CgogICAgICAgIGZ1biB1cGRhdGVQbGF5YmFjaygKICAgICAgICAgICAgY29udGV4dDogQ29udGV4dCwKICAgICAgICAgICAgcGxheWluZzogQm9vbGVhbiwKICAgICAgICAgICAgcG9zaXRpb25NczogTG9uZywKICAgICAgICAgICAgZHVyYXRpb25NczogTG9uZywKICAgICAgICApIHsKICAgICAgICAgICAgdmFsIGludGVudCA9IEludGVudChjb250ZXh0LCBSYWt5enVNZWRpYVNlcnZpY2U6OmNsYXNzLmphdmEpLmFwcGx5IHsKICAgICAgICAgICAgICAgIGFjdGlvbiA9IEFDVElPTl9VUERBVEVfUExBWUJBQ0sKICAgICAgICAgICAgICAgIHB1dEV4dHJhKEVYVFJBX1BMQVlJTkcsIHBsYXlpbmcpCiAgICAgICAgICAgICAgICBwdXRFeHRyYShFWFRSQV9QT1NJVElPTiwgcG9zaXRpb25NcykKICAgICAgICAgICAgICAgIHB1dEV4dHJhKEVYVFJBX0RVUkFUSU9OLCBkdXJhdGlvbk1zKQogICAgICAgICAgICB9CgogICAgICAgICAgICBDb250ZXh0Q29tcGF0LnN0YXJ0Rm9yZWdyb3VuZFNlcnZpY2UoY29udGV4dCwgaW50ZW50KQogICAgICAgIH0KCiAgICAgICAgZnVuIHN0b3BTZXJ2aWNlKGNvbnRleHQ6IENvbnRleHQpIHsKICAgICAgICAgICAgdmFsIGludGVudCA9IEludGVudChjb250ZXh0LCBSYWt5enVNZWRpYVNlcnZpY2U6OmNsYXNzLmphdmEpLmFwcGx5IHsKICAgICAgICAgICAgICAgIGFjdGlvbiA9IEFDVElPTl9TVE9QCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIENvbnRleHRDb21wYXQuc3RhcnRGb3JlZ3JvdW5kU2VydmljZShjb250ZXh0LCBpbnRlbnQpCiAgICAgICAgfQogICAgfQp9Cg==").decode()
+
+          (package_path / "MainActivity.kt").write_text(main_activity)
+          (package_path / "RakyzuMediaService.kt").write_text(media_service)
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+
+          if "xmlns:tools" not in text:
+              text = text.replace(
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                  '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">',
+                  1,
+              )
+
+          permissions = [
+              '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
+              '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
+              '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+              '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+              '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+              '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
+          ]
+
+          for permission in permissions:
+              key = re.search(r'android:name="([^"]+)"', permission).group(1)
+              if key not in text:
+                  text = text.replace("    <application", f"    {permission}\n\n    <application", 1)
+
+          text = re.sub(r'android:label="[^"]+"', 'android:label="Rakyzu Music Player"', text, count=1)
+
+          text = re.sub(
+              r'android:name="[^"]*AudioServiceActivity"',
+              'android:name=".MainActivity"',
+              text,
+              count=1,
+          )
+
+          if "RakyzuMediaService" not in text:
+              service_block = '''
+          <service
+              android:name=".RakyzuMediaService"
+              android:exported="false"
+              android:foregroundServiceType="mediaPlayback" />
+          '''
+              text = text.replace("    </application>", service_block + "\n    </application>", 1)
+
+          manifest.write_text(text)
+          print(text)
+
+          gradle = Path("android/app/build.gradle")
+          gradle_kts = Path("android/app/build.gradle.kts")
+
+          if gradle.exists():
+              g = gradle.read_text()
+
+              deps = [
+                  'implementation "androidx.core:core-ktx:1.13.1"',
+                  'implementation "androidx.media:media:1.7.0"',
+              ]
+
+              if "dependencies {" not in g:
+                  g += "\n\ndependencies {\n}\n"
+
+              for dep in deps:
+                  if dep not in g:
+                      g = g.replace("dependencies {", "dependencies {\n    " + dep, 1)
+
+              g = re.sub(r'compileSdk\\s*=?\\s*\\d+', 'compileSdk 35', g)
+              g = re.sub(r'compileSdkVersion\\s+\\d+', 'compileSdkVersion 35', g)
+
+              gradle.write_text(g)
+              print("Patched Groovy Gradle:", gradle)
+              print(g)
+
+          elif gradle_kts.exists():
+              g = gradle_kts.read_text()
+
+              deps = [
+                  'implementation("androidx.core:core-ktx:1.13.1")',
+                  'implementation("androidx.media:media:1.7.0")',
+              ]
+
+              if "dependencies {" not in g:
+                  g += "\n\ndependencies {\n}\n"
+
+              for dep in deps:
+                  if dep not in g:
+                      g = g.replace("dependencies {", "dependencies {\n    " + dep, 1)
+
+              g = re.sub(r'compileSdk\\s*=\\s*\\d+', 'compileSdk = 35', g)
+              g = re.sub(r'compileSdkVersion\\(\\d+\\)', 'compileSdkVersion(35)', g)
+
+              gradle_kts.write_text(g)
+              print("Patched Kotlin Gradle:", gradle_kts)
+              print(g)
+
+          else:
+              raise SystemExit("Neither android/app/build.gradle nor android/app/build.gradle.kts exists")
+          PY
+
+      - name: Force Android app display name
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+
+          if 'android:label="' in text:
+              text = re.sub(
+                  r'android:label="[^"]+"',
+                  'android:label="Rakyzu Music Player"',
+                  text,
+                  count=1,
+              )
+          else:
+              text = text.replace(
+                  "    <application",
+                  '    <application android:label="Rakyzu Music Player"',
+                  1,
+              )
+
+          manifest.write_text(text)
+          print(text)
+          PY
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Patch on_audio_query Android Gradle compatibility
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          files = list(Path.home().glob(".pub-cache/hosted/pub.dev/on_audio_query_android-*/android/build.gradle"))
+
+          if not files:
+              raise SystemExit("on_audio_query_android android/build.gradle not found")
+
+          gradle = files[0]
+          text = gradle.read_text()
+
+          namespace = "com.lucasjosino.on_audio_query"
+          manifest = gradle.parent / "src" / "main" / "AndroidManifest.xml"
+
+          if manifest.exists():
+              manifest_text = manifest.read_text()
+              match = re.search(r'package="([^"]+)"', manifest_text)
+              if match:
+                  namespace = match.group(1)
+
+          if "namespace " not in text and "namespace=" not in text:
+              text = text.replace("android {", "android {\\n    namespace '" + namespace + "'", 1)
+
+          text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 35', text)
+          text = re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 35', text)
+
+          if "compileSdk" not in text:
+              text = text.replace("android {", "android {\n    compileSdk 35", 1)
+
+          if "compileOptions" not in text:
+              text = text.replace(
+                  "android {",
+                  '''android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }''',
+                  1
+              )
+
+          if "jvmTarget" not in text:
+              text += '''
+
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          '''
+
+          gradle.write_text(text)
+          print("Patched Gradle file:", gradle)
+          print(text)
+          PY
+
+      - name: Patch app Android compileSdk
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          for file in [
+              Path("android/app/build.gradle"),
+              Path("android/build.gradle"),
+          ]:
+              if not file.exists():
+                  continue
+
+              text = file.read_text()
+              text = re.sub(r'compileSdk\s*=?\s*\d+', 'compileSdk 35', text)
+              text = re.sub(r'compileSdkVersion\s+\d+', 'compileSdkVersion 35', text)
+              file.write_text(text)
+              print("Checked:", file)
+          PY
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Analyze Dart
+        run: |
+          rm -rf test
+          flutter analyze lib --no-fatal-infos --no-fatal-warnings
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rakyzu-Music-Player-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
