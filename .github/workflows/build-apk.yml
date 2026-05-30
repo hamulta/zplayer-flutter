@@ -102,6 +102,34 @@ jobs:
           print(text)
           PY
 
+
+      - name: Force Android app display name
+        run: |
+          python3 <<'PY2'
+          from pathlib import Path
+          import re
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+
+          if 'android:label="' in text:
+              text = re.sub(
+                  r'android:label="[^"]+"',
+                  'android:label="Rakyzu Music Player"',
+                  text,
+                  count=1,
+              )
+          else:
+              text = text.replace(
+                  "    <application",
+                  '    <application android:label="Rakyzu Music Player"',
+                  1,
+              )
+
+          manifest.write_text(text)
+          print(text)
+          PY2
+
       - name: Get dependencies
         run: flutter pub get
 
