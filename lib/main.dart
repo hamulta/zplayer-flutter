@@ -23,9 +23,7 @@ Future<void> main() async {
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.rakyzu.musicplayer.playback',
         androidNotificationChannelName: 'Rakyzu Music Playback',
-        androidNotificationOngoing: true,
         androidShowNotificationBadge: true,
-        androidStopForegroundOnPause: false,
       ),
     ).timeout(const Duration(seconds: 4));
   } catch (_) {
