@@ -298,6 +298,38 @@ jobs:
           rm -rf test
           flutter analyze lib --no-fatal-infos --no-fatal-warnings
 
+      - name: Hard guard native MediaService before build
+        run: |
+          python3 <<'PY2'
+          from pathlib import Path
+
+          files = list(Path("android/app/src/main/kotlin").rglob("RakyzuMediaService.kt"))
+          if not files:
+              raise SystemExit("RakyzuMediaService.kt not found before build")
+
+          replacement = '''if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                @Suppress("DEPRECATION")
+                context.startService(intent)
+            }'''
+
+          for file in files:
+              text = file.read_text()
+
+              text = text.replace("import androidx.core.app.ContextCompat\n", "")
+              text = text.replace("import androidx.core.content.ContextCompat\n", "")
+              text = text.replace("ContextCompat.startForegroundService(context, intent)", replacement)
+
+              if "ContextCompat" in text:
+                  print(text)
+                  raise SystemExit("ContextCompat still exists after hard guard")
+
+              file.write_text(text)
+              print("Hard-guard patched:", file)
+              print(text)
+          PY2
+
       - name: Build debug APK
         run: flutter build apk --debug
 
